@@ -74,7 +74,7 @@ func main() {
 	flags.Register(fs)
 
 	err := ff.Parse(fs, nil,
-		ff.WithEnvVarPrefix("TG"),
+		ff.WithEnvVarPrefix("TGO"),
 		ff.WithConfigFileFlag("config"),
 		ff.WithConfigFileParser(ff.PlainParser),
 	)
