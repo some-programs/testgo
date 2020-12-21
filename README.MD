@@ -1,3 +1,4 @@
-# testgo
+# tgo
 
-very simple wrapper around go test to get a little bit better feedback while working
+A simple wrapper around go test to get a little bit better feedback while working.
+

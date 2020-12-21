@@ -1,4 +1,4 @@
-module github.com/some-programs/testgo
+module github.com/some-programs/tgo
 
 go 1.15
 
