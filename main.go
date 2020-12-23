@@ -270,9 +270,9 @@ scan:
 				fail = statusColor(fail)
 			}
 
-			if countSkip > 0 {
-				skip = skipColorBold(skip)
-			}
+			// if countSkip > 0 {
+			// skip = skipColorBold(skip)
+			// }
 
 			fmt.Println("")
 			sep := " " + statusColor("|") + " "
