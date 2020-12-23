@@ -253,26 +253,39 @@ scan:
 			none := statusNames[StatusNone] + ":" + fmt.Sprint(countNone)
 			skip := statusNames[StatusSkip] + ":" + fmt.Sprint(countSkip)
 
-			if countFail > 0 {
-				fail = statusColors[StatusFail](fail)
+			statusColor := hardLineColor
+
+			if countPass > 0 {
+				statusColor = passColorBold
+				pass = statusColor(pass)
 			}
+
 			if countNone > 0 {
-				none = statusColors[StatusNone](none)
+				statusColor = noneColorBold
+				none = statusColor(none)
 			}
+
+			if countFail > 0 {
+				statusColor = failColorBold
+				fail = statusColor(fail)
+			}
+
 			if countSkip > 0 {
-				skip = statusColors[StatusSkip](skip)
+				skip = skipColorBold(skip)
 			}
 
 			fmt.Println("")
-			sep := " " + lineColor("|") + " "
-			fmt.Println(hardLineColor("══════") + " " +
-				time.Now().Format("15:04:05") +
+			sep := " " + statusColor("|") + " "
+			status := statusColor("══════") + " " +
+				statusColor(time.Now().Format("15:04:05")) +
 				sep + pass +
 				sep + fail +
 				sep + none +
 				sep + skip +
-				sep + time.Now().Sub(t0).Round(time.Millisecond).String() +
-				"  " + hardLineColor("══════"))
+				sep + statusColor(time.Now().Sub(t0).Round(time.Millisecond).String()) +
+				"  " + statusColor("══════")
+
+			fmt.Println(status)
 
 		}
 	}

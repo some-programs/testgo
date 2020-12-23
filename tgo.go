@@ -182,10 +182,18 @@ var (
 	testColor     = color.New(color.FgMagenta).SprintFunc()
 	timeColor     = color.New(color.FgCyan).SprintFunc()
 	coverColor    = color.New(color.FgBlue).SprintFunc()
+
 	failColor     = color.New(color.FgRed).SprintFunc()
+	failColorBold = color.New(color.FgRed, color.Bold).SprintFunc()
+
 	noneColor     = color.New(color.FgYellow).SprintFunc()
+	noneColorBold = color.New(color.FgYellow, color.Bold).SprintFunc()
+
 	passColor     = color.New(color.FgGreen).SprintFunc()
+	passColorBold = color.New(color.FgGreen, color.Bold).SprintFunc()
+
 	skipColor     = color.New(color.FgHiMagenta).SprintFunc()
+	skipColorBold = color.New(color.FgHiMagenta, color.Bold).SprintFunc()
 
 	statusColors = map[Status](func(a ...interface{}) string){
 		StatusFail:  failColor,
