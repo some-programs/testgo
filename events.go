@@ -208,27 +208,37 @@ loop:
 
 	events.SortByTime()
 	status := events.Status()
-	if len(filteredEvents) == 0 && flags.HideEmptyResults.Any(status) {
+	numberEvents := len(filteredEvents)
+	if numberEvents == 0 && flags.HideEmptyResults.Any(status) {
 		return
 	}
+	textColor := defaultColor
 	var event *Event
 	switch status {
 	case StatusFail:
 		event = events.FindFirstByAction(ActionFail)
+		textColor = failColor
 	case StatusPass:
 		event = events.FindFirstByAction(ActionPass)
+		// textColor = passColor
 	case StatusSkip:
 		event = events.FindFirstByAction(ActionSkip)
+		textColor = skipColor
 	case StatusBench:
 		event = events.FindFirstByAction(ActionBench)
 	}
+
 	if event == nil {
 		event = &events[0]
 	}
 
 	var testName string
 	if event.Test != "" {
-		testName = "." + testColor(event.Test)
+		c := testColor
+		if numberEvents > 0 {
+			c = testColorBold
+		}
+		testName = "." + c(event.Test)
 	}
 
 	var sb strings.Builder
@@ -249,8 +259,9 @@ loop:
 	}
 
 	statusColor := statusColors[status]
-	fmt.Print(statusColor("═══") +
-		" " + statusColor(statusNames[status]) +
+	statusBold := statusColorsBold[status]
+	fmt.Print(statusBold("═══") +
+		" " + statusBold(statusNames[status]) +
 		" " + statusColor(event.Package) + testName +
 		sb.String() +
 		"\n",
@@ -266,7 +277,7 @@ loop:
 		if flags.V >= V3 {
 			ss = append(ss, e.Time.Format("15:04:05.999"))
 		}
-		ss = append(ss, strings.TrimSuffix(e.Output, "\n"), "\n")
+		ss = append(ss, textColor(strings.TrimSuffix(e.Output, "\n")), "\n")
 		fmt.Print(strings.Join(ss, " "))
 	}
 	if len(filteredEvents) > 0 {

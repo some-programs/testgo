@@ -153,7 +153,8 @@ func (ts TestStorage) CountTests() int {
 
 func (ts TestStorage) PrintShortSummary(status Status) {
 	statusColor := statusColors[status]
-	header := statusColor(statusNames[status])
+	statusBold := statusColorsBold[status]
+	header := statusBold(statusNames[status])
 	hr := statusColor("════════════")
 	prefix := statusColor(fmt.Sprintf("%6s ", statusNames[status]))
 

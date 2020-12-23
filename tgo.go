@@ -180,6 +180,7 @@ var (
 	hardLineColor = color.New().SprintFunc()
 	packageColor  = color.New().SprintFunc()
 	testColor     = color.New(color.FgMagenta).SprintFunc()
+	testColorBold = color.New(color.FgMagenta, color.Bold).SprintFunc()
 	timeColor     = color.New(color.FgCyan).SprintFunc()
 	coverColor    = color.New(color.FgBlue).SprintFunc()
 
@@ -201,5 +202,13 @@ var (
 		StatusNone:  noneColor,
 		StatusSkip:  skipColor,
 		StatusBench: passColor,
+	}
+
+	statusColorsBold = map[Status](func(a ...interface{}) string){
+		StatusFail:  failColorBold,
+		StatusPass:  passColorBold,
+		StatusNone:  noneColorBold,
+		StatusSkip:  skipColorBold,
+		StatusBench: passColorBold,
 	}
 )
