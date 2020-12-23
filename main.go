@@ -21,35 +21,66 @@ import (
 
 // Flags .
 type Flags struct {
-	V       Verbosity
-	Config  string
-	Results Statuses
-	Summary Statuses
-	Bin     string
+	V                Verbosity
+	Config           string
+	Results          Statuses
+	HideEmptyResults Statuses
+	Summary          Statuses
+	Bin              string
+	All              bool
 }
 
 func (f *Flags) Register(fs *flag.FlagSet) {
-	f.Results = []Status{StatusFail, StatusNone}
-	f.Summary = []Status{StatusFail, StatusNone}
+	f.Results = Statuses{StatusFail, StatusNone}
+	f.Summary = Statuses{StatusFail, StatusNone}
 
 	fs.StringVar(&f.Bin, "bin", "go", "go binary name")
 	fs.Var(&f.Results, "results", "types of results to show")
 	fs.Var(&f.Summary, "summary", "types of summary to show")
+	fs.Var(&f.HideEmptyResults, "res-hide", "hide emtpy results")
 	fs.IntVar((*int)(&f.V), "v", 0, "0(lowest) to 5(highest)")
 	fs.StringVar(&f.Config, "config", "", "config file")
+	fs.BoolVar(&f.All, "all", false, "show mostly everything")
+
 }
 
-func (f *Flags) Setup() {
-	if f.V >= 5 {
+func (f *Flags) Setup(args []string) {
+	if f.All {
 		f.Results = AllStatuses
 		f.Summary = AllStatuses
+		f.HideEmptyResults = Statuses{}
 	}
+	for _, v := range args {
+		if v == "-v" {
+			f.V = V2
+			f.Results = Statuses{
+				// StatusSkip,
+				StatusBench,
+				StatusPass,
+				StatusNone,
+				StatusFail,
+			}
+			f.HideEmptyResults = Statuses{
+				// StatusSkip,
+				StatusBench,
+				StatusPass,
+				StatusNone,
+				// StatusFail,
+			}
+			f.Summary = Statuses{
+				StatusNone,
+				StatusFail,
+				// StatusPass,
+			}
+		}
+	}
+
 }
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-
 	fs := flag.NewFlagSet("tgo", flag.ExitOnError)
+
 	var flags Flags
 	flags.Register(fs)
 
@@ -62,7 +93,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	flags.Setup()
+	flags.Setup(os.Args)
+
 	if flags.V <= V3 {
 		log.SetOutput(ioutil.Discard)
 	}
@@ -103,7 +135,9 @@ func run(ctx context.Context, flags Flags, argv []string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var coverEnabled bool
+	var (
+		coverEnabled bool
+	)
 	for _, v := range argv {
 		if v == "-cover" {
 			coverEnabled = true
@@ -133,8 +167,10 @@ func run(ctx context.Context, flags Flags, argv []string) error {
 	printed := make(map[Key]bool, 0)
 	scanner := bufio.NewScanner(stdout)
 
+	fmt.Println("*****")
 scan:
 	for scanner.Scan() {
+
 		var e Event
 		log.Println("SCANg LINE:", scanner.Text())
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
@@ -144,7 +180,7 @@ scan:
 		tests.Append(e)
 		key := e.Key()
 		if !printed[key] && flags.Results.HasAction(e.Action) {
-			tests[key].PrintDetail(flags.V)
+			tests[key].PrintDetail(flags)
 			printed[key] = true
 		}
 	}
@@ -155,30 +191,38 @@ scan:
 				FilterKeys(printed).
 				FilterAction(EndingActions...)
 			for _, key := range noneTests.OrderedKeys() {
-				tests[key].PrintDetail(flags.V)
+				tests[key].PrintDetail(flags)
 				printed[key] = true
 			}
 		}
 
 		// print summaries
 		for _, status := range flags.Summary {
+
 			if status == StatusNone {
-				filtered := tests.
-					FilterAction(EndingActions...)
+
+				filtered := tests.FilterAction(EndingActions...)
+
 				if len(filtered) > 0 {
 					filtered.PrintSummary(status)
 				}
+
 			} else {
+
 				for _, action := range EndingActions {
 					if status.IsAction(action) {
+
 						filtered := tests.FindByAction(action)
+
 						if action == ActionSkip {
 							if flags.V <= V3 {
 								filtered = filtered.FilterNotests()
 							}
 						}
+
 						if len(filtered) > 0 {
 							filtered.PrintSummary(status)
+
 						}
 
 					}
@@ -229,7 +273,7 @@ scan:
 				sep + skip +
 				sep + time.Now().Sub(t0).Round(time.Millisecond).String() +
 				"  " + hardLineColor("══════"))
-			fmt.Println("")
+
 		}
 	}
 

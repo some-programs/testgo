@@ -54,11 +54,33 @@ func (ts TestStorage) FilterPackageResults() TestStorage {
 	return tests
 }
 
+func (ts TestStorage) FindPackageResults() TestStorage {
+	tests := make(TestStorage, 0)
+	for key, events := range ts {
+		if key.Test == "" {
+			tests[key] = events
+		}
+	}
+	return tests
+}
+
 func (ts TestStorage) FilterKeys(exclude map[Key]bool) TestStorage {
 	tests := make(TestStorage, 0)
 loop:
 	for key, events := range ts {
 		if !exclude[key] {
+			tests[key] = events
+			continue loop
+		}
+	}
+	return tests
+}
+
+func (ts TestStorage) FindPackageTests(name string) TestStorage {
+	tests := make(TestStorage, 0)
+loop:
+	for key, events := range ts {
+		if name == key.Package {
 			tests[key] = events
 			continue loop
 		}
@@ -127,6 +149,49 @@ loop:
 
 func (ts TestStorage) CountTests() int {
 	return len(ts.FilterPackageResults())
+}
+
+func (ts TestStorage) PrintShortSummary(status Status) {
+	statusColor := statusColors[status]
+	header := statusColor(statusNames[status])
+	hr := statusColor("════════════")
+	prefix := statusColor(fmt.Sprintf("%6s ", statusNames[status]))
+
+	tests := ts.FindPackageResults()
+
+	fmt.Println(hr, header, hr)
+	for _, key := range tests.OrderedKeys() {
+		events := ts[key]
+
+		var sb strings.Builder
+
+		if fe := events.FindFirstByAction(EndingActions...); fe != nil && fe.Elapsed >= 0.01 {
+			sb.WriteString("  ")
+			sb.WriteString(timeColor(fmt.Sprintf("(%.2fs)", fe.Elapsed)))
+		}
+
+		count := ts.FindPackageTests(key.Package).CountTests()
+		sb.WriteString("   ")
+		sb.WriteString(statusColor(fmt.Sprintf("<%v tests>", count)))
+
+		if events.IsPackageWithoutTest() {
+			sb.WriteString("  ")
+			sb.WriteString("[no tests]")
+		}
+
+		coverage := events.FindCoverage()
+		if len(coverage) > 0 {
+			sb.WriteString("  ")
+			sb.WriteString(coverColor(fmt.Sprintf("{%s}", coverage)))
+		}
+		fmt.Print(prefix +
+			packageColor(key.Package) +
+			sb.String() +
+			"\n",
+		)
+
+	}
+
 }
 
 func (ts TestStorage) PrintSummary(status Status) {

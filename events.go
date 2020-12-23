@@ -139,6 +139,7 @@ loop:
 					(output == fmt.Sprintf("ok   %s\n", e.Package)) ||
 					(output == "PASS\n") ||
 					(output == "FAIL\n") ||
+					(output == "testing: warning: no tests to run\n") ||
 					(strings.HasPrefix(outputWS, fmt.Sprintf("FAIL\t%s\t", e.Package))) ||
 					(strings.HasPrefix(outputWS, "coverage:") && strings.HasSuffix(outputWS, "of statements")))) {
 			continue loop
@@ -154,6 +155,7 @@ func (es Events) IsPackageWithoutTest() bool {
 		if e.Action == "output" &&
 			e.Package != "" &&
 			e.Test == "" &&
+
 			(strings.HasSuffix(output, "[no test files]\n")) {
 			return true
 		}
@@ -183,19 +185,32 @@ func (es Events) FindCoverage() string {
 	return ""
 }
 
-func (es Events) PrintDetail(V Verbosity) {
+func (es Events) PrintDetail(flags Flags) {
 	if len(es) == 0 {
 		return
 	}
 	events := es.Clone()
-	if V <= V3 {
+	if flags.V <= V3 {
 		events = events.Compact()
 	}
 	if len(events) == 0 {
 		return
 	}
+
+	var filteredEvents Events
+loop:
+	for _, e := range events {
+		if flags.V <= V3 && strings.TrimSpace(e.Output) == "" {
+			continue loop
+		}
+		filteredEvents = append(filteredEvents, e)
+	}
+
 	events.SortByTime()
 	status := events.Status()
+	if len(filteredEvents) == 0 && flags.HideEmptyResults.Any(status) {
+		return
+	}
 	var event *Event
 	switch status {
 	case StatusFail:
@@ -233,15 +248,6 @@ func (es Events) PrintDetail(V Verbosity) {
 		sb.WriteString("[no tests]")
 	}
 
-	var filteredEvents Events
-loop:
-	for _, e := range events {
-		if V <= V3 && strings.TrimSpace(e.Output) == "" {
-			continue loop
-		}
-		filteredEvents = append(filteredEvents, e)
-	}
-
 	statusColor := statusColors[status]
 	fmt.Print(statusColor("═══") +
 		" " + statusColor(statusNames[status]) +
@@ -254,10 +260,10 @@ loop:
 	}
 	for _, e := range filteredEvents {
 		var ss []string
-		if V >= V3 {
+		if flags.V >= V3 {
 			ss = append(ss, fmt.Sprintf("%7s", e.Action))
 		}
-		if V >= V2 {
+		if flags.V >= V3 {
 			ss = append(ss, e.Time.Format("15:04:05.999"))
 		}
 		ss = append(ss, strings.TrimSuffix(e.Output, "\n"), "\n")
