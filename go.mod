@@ -3,6 +3,7 @@ module github.com/some-programs/tgo
 go 1.15
 
 require (
+	github.com/davecgh/go-spew v1.1.1
 	github.com/fatih/color v1.10.0
 	github.com/go-pa/flagutil v0.1.0
 	github.com/google/go-cmp v0.5.4 // indirect

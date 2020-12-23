@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -11,7 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"sync"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -24,12 +25,14 @@ type Flags struct {
 	Config  string
 	Results Statuses
 	Summary Statuses
+	Bin     string
 }
 
 func (f *Flags) Register(fs *flag.FlagSet) {
 	f.Results = []Status{StatusFail, StatusNone}
 	f.Summary = []Status{StatusFail, StatusNone}
 
+	fs.StringVar(&f.Bin, "bin", "go", "go binary name")
 	fs.Var(&f.Results, "results", "types of results to show")
 	fs.Var(&f.Summary, "summary", "types of summary to show")
 	fs.IntVar((*int)(&f.V), "v", 0, "0(lowest) to 5(highest)")
@@ -46,16 +49,15 @@ func (f *Flags) Setup() {
 func main() {
 	log.SetFlags(log.Lshortfile)
 
-	fs := flag.NewFlagSet("runtests", flag.ExitOnError)
+	fs := flag.NewFlagSet("tgo", flag.ExitOnError)
 	var flags Flags
 	flags.Register(fs)
 
-	err := ff.Parse(fs, nil,
+	if err := ff.Parse(fs, nil,
 		ff.WithEnvVarPrefix("TGO"),
 		ff.WithConfigFileFlag("config"),
 		ff.WithConfigFileParser(ff.PlainParser),
-	)
-	if err != nil {
+	); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -69,6 +71,7 @@ func main() {
 	log.Printf("args: %+v", os.Args)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGTERM)
@@ -80,13 +83,18 @@ func main() {
 		select {
 		case <-c:
 			cancel()
+			return
 		case <-ctx.Done():
 			return
 		}
 	}()
 
 	if err := run(ctx, flags, os.Args[1:]); err != nil {
-		log.Println(err)
+		var ee ExitError
+		if errors.As(err, &ee) {
+			os.Exit(int(ee))
+		}
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }
@@ -95,13 +103,6 @@ func run(ctx context.Context, flags Flags, argv []string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	args := []string{"test", "-json"}
-	args = append(args, argv...)
-	log.Println("args", args)
-	cmd := exec.CommandContext(ctx, "go", args...)
-	cmd.Stderr = os.Stderr
-	var wg sync.WaitGroup
-
 	var coverEnabled bool
 	for _, v := range argv {
 		if v == "-cover" {
@@ -109,39 +110,46 @@ func run(ctx context.Context, flags Flags, argv []string) error {
 		}
 	}
 
+	args := []string{"test", "-json"}
+	args = append(args, argv...)
+	log.Println("args", args)
+	cmd := exec.CommandContext(ctx, flags.Bin, args...)
+	cmd.Stderr = os.Stderr
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Println(err)
-		cancel()
+		return err
+	}
+	defer stdout.Close()
+
+	if err := cmd.Start(); err != nil {
+		fmt.Println(err)
+		return err
 	}
 
-	doneC := make(chan bool, 1)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		t0 := time.Now()
+	t0 := time.Now()
 
-		tests := make(TestStorage, 0)
-		printed := make(map[Key]bool, 0)
-		scanner := bufio.NewScanner(stdout)
+	tests := make(TestStorage, 0)
+	printed := make(map[Key]bool, 0)
+	scanner := bufio.NewScanner(stdout)
 
-	scan:
-		for scanner.Scan() {
-			var e Event
-			log.Println("SCANg LINE:", scanner.Text())
-			if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
-				log.Println(err, scanner.Text())
-				continue scan
-			}
-			tests.Append(e)
-			key := e.Key()
-			// fmt.Println("flags.Results", flags.Results)
-			if !printed[key] && flags.Results.HasAction(e.Action) {
-				tests[key].PrintDetail(flags.V)
-				printed[key] = true
-			}
+scan:
+	for scanner.Scan() {
+		var e Event
+		log.Println("SCANg LINE:", scanner.Text())
+		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
+			log.Println(err, scanner.Text())
+			continue scan
 		}
+		tests.Append(e)
+		key := e.Key()
+		if !printed[key] && flags.Results.HasAction(e.Action) {
+			tests[key].PrintDetail(flags.V)
+			printed[key] = true
+		}
+	}
 
+	if len(tests) > 0 {
 		if flags.Results.Any(StatusNone) {
 			noneTests := tests.
 				FilterKeys(printed).
@@ -153,7 +161,6 @@ func run(ctx context.Context, flags Flags, argv []string) error {
 		}
 
 		// print summaries
-
 		for _, status := range flags.Summary {
 			if status == StatusNone {
 				filtered := tests.
@@ -224,31 +231,30 @@ func run(ctx context.Context, flags Flags, argv []string) error {
 				"  " + hardLineColor("══════"))
 			fmt.Println("")
 		}
-
-		if err := scanner.Err(); err != nil {
-			fmt.Println("error reading standard input:", err)
-		}
-
-		doneC <- true
-	}()
-
-	if err := cmd.Start(); err != nil {
-		log.Println(err)
 	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println("error reading standard input:", err)
+
+	}
+	go stdout.Close()
+
 	go func() {
-		wg.Wait()
-		doneC <- true
-	}()
-
-	select {
-	case ok := <-doneC:
+		time.Sleep(2 * time.Second)
 		cancel()
-		err := cmd.Wait()
-		if ok {
-			return nil
+	}()
+	cmdErr := cmd.Wait()
+	var ee *exec.ExitError
+	if cmdErr != nil && errors.As(cmdErr, &ee) {
+		if ee.Exited() {
+			return ExitError(ee.ExitCode())
 		}
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
 	}
+	return nil
+}
+
+type ExitError int
+
+func (e ExitError) Error() string {
+	return strconv.FormatInt(int64(e), 10)
 }

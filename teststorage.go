@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/maruel/natural"
 )
@@ -15,8 +16,13 @@ func (ts TestStorage) OrderedKeys() []Key {
 		tks = append(tks, k)
 	}
 	sort.SliceStable(tks, func(i, j int) bool {
+		if (tks[i].Package == tks[j].Package) &&
+			(tks[i].Test == "" || tks[j].Test == "") {
+			return len(tks[i].Test) > len(tks[j].Test)
+		}
 		return natural.Less(tks[i].String(), tks[j].String())
 	})
+
 	return tks
 }
 
@@ -133,28 +139,33 @@ func (ts TestStorage) PrintSummary(status Status) {
 	fmt.Println(hr, header, hr)
 	for _, key := range ts.OrderedKeys() {
 		events := ts[key]
-		var elapsed string
-		if fe := events.FindFirstByAction(EndingActions...); fe != nil {
-			if fe.Elapsed >= 0.01 {
-				elapsed = timeColor(fmt.Sprintf("(%.2fs)", fe.Elapsed))
-			}
+
+		var sb strings.Builder
+
+		if fe := events.FindFirstByAction(EndingActions...); fe != nil && fe.Elapsed >= 0.01 {
+			sb.WriteString("  ")
+			sb.WriteString(timeColor(fmt.Sprintf("(%.2fs)", fe.Elapsed)))
 		}
 		if key.Test == "" {
+			if events.IsPackageWithoutTest() {
+				sb.WriteString("  ")
+				sb.WriteString("[no tests]")
+			}
 			coverage := events.FindCoverage()
 			if len(coverage) > 0 {
-				coverage = fmt.Sprintf("  {%s} ", coverage)
+				sb.WriteString("  ")
+				sb.WriteString(coverColor(fmt.Sprintf("{%s}", coverage)))
 			}
 			fmt.Print(prefix +
 				packageColor(key.Package) +
-				" " + timeColor(elapsed) +
-				coverColor(coverage) +
+				sb.String() +
 				"\n",
 			)
 		} else {
 			fmt.Print(prefix +
 				packageColor(key.Package) +
 				"." + testColor(key.Test) +
-				" " + timeColor(elapsed) +
+				sb.String() +
 				"\n",
 			)
 		}

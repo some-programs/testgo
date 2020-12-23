@@ -94,6 +94,7 @@ func (es Events) SortByTime() {
 	sort.SliceStable(es, func(i, j int) bool {
 		return es[i].Time.Before(es[j].Time)
 	})
+
 }
 
 // Compact removes events that are uninteresting for printing
@@ -190,6 +191,9 @@ func (es Events) PrintDetail(V Verbosity) {
 	if V <= V3 {
 		events = events.Compact()
 	}
+	if len(events) == 0 {
+		return
+	}
 	events.SortByTime()
 	status := events.Status()
 	var event *Event
@@ -206,17 +210,27 @@ func (es Events) PrintDetail(V Verbosity) {
 	if event == nil {
 		event = &events[0]
 	}
+
 	var testName string
 	if event.Test != "" {
 		testName = "." + testColor(event.Test)
 	}
-	var elapsed string
+
+	var sb strings.Builder
 	if event.Elapsed >= 0.01 {
-		elapsed = " " + timeColor(fmt.Sprintf("(%.2fs)", event.Elapsed))
+		sb.WriteString("  ")
+		sb.WriteString(timeColor(fmt.Sprintf("(%.2fs)", event.Elapsed)))
 	}
+
 	coverage := es.FindCoverage()
 	if len(coverage) > 0 {
-		coverage = fmt.Sprintf(" {%s}", coverColor(coverage))
+		sb.WriteString("  ")
+		sb.WriteString(coverColor(fmt.Sprintf("{%s}", coverage)))
+	}
+
+	if es.IsPackageWithoutTest() {
+		sb.WriteString("  ")
+		sb.WriteString("[no tests]")
 	}
 
 	var filteredEvents Events
@@ -232,7 +246,7 @@ loop:
 	fmt.Print(statusColor("═══") +
 		" " + statusColor(statusNames[status]) +
 		" " + statusColor(event.Package) + testName +
-		elapsed + coverage +
+		sb.String() +
 		"\n",
 	)
 	if len(filteredEvents) > 0 {
