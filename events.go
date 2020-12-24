@@ -260,7 +260,7 @@ loop:
 
 	statusColor := statusColors[status]
 	statusBold := statusColorsBold[status]
-	fmt.Print(statusBold("═══") +
+	fmt.Print(statusBold("===") +
 		" " + statusBold(statusNames[status]) +
 		" " + statusColor(event.Package) + testName +
 		sb.String() +
