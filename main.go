@@ -172,9 +172,9 @@ scan:
 	for scanner.Scan() {
 
 		var e Event
-		log.Println("SCANg LINE:", scanner.Text())
+		log.Println("LINE:", scanner.Text())
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
-			log.Println(err, scanner.Text())
+			log.Println("scanner error", err)
 			continue scan
 		}
 		tests.Append(e)
@@ -198,11 +198,8 @@ scan:
 
 		// print summaries
 		for _, status := range flags.Summary {
-
 			if status == StatusNone {
-
 				filtered := tests.FilterAction(EndingActions...)
-
 				if len(filtered) > 0 {
 					filtered.PrintSummary(status)
 				}
