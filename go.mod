@@ -6,5 +6,5 @@ require (
 	github.com/fatih/color v1.10.0
 	github.com/maruel/natural v1.0.0
 	github.com/peterbourgon/ff/v3 v3.0.0
-	golang.org/x/sys v0.0.0-20201221093633-bc327ba9c2f0 // indirect
+	golang.org/x/sys v0.0.0-20201223074533-0d417f636930 // indirect
 )
