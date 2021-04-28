@@ -141,7 +141,6 @@ func (f *Flags) Register(fs *flag.FlagSet) {
 	fs.IntVar((*int)(&f.V), "v", 0, "0(lowest) to 5(highest)")
 	fs.StringVar(&f.Config, "config", "", "config file")
 	fs.BoolVar(&f.All, "all", false, "show mostly everything")
-
 }
 
 func (f *Flags) Setup(args []string) {
@@ -174,7 +173,6 @@ func (f *Flags) Setup(args []string) {
 			}
 		}
 	}
-
 }
 
 type Action string
@@ -374,7 +372,6 @@ func (es Events) SortByTime() {
 	sort.SliceStable(es, func(i, j int) bool {
 		return es[i].Time.Before(es[j].Time)
 	})
-
 }
 
 // Compact removes events that are uninteresting for printing
@@ -749,7 +746,6 @@ func (ts TestStorage) PrintShortSummary(status Status) {
 		)
 
 	}
-
 }
 
 func (ts TestStorage) PrintSummary(status Status) {
@@ -880,9 +876,7 @@ func run(ctx context.Context, flags Flags, argv []string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var (
-		coverEnabled bool
-	)
+	var coverEnabled bool
 	for _, v := range argv {
 		if v == "-cover" {
 			coverEnabled = true
@@ -950,7 +944,6 @@ scan:
 				}
 
 			} else {
-
 				for _, action := range EndingActions {
 					if status.IsAction(action) {
 
@@ -964,7 +957,6 @@ scan:
 
 						if len(filtered) > 0 {
 							filtered.PrintSummary(status)
-
 						}
 
 					}
@@ -1034,7 +1026,6 @@ scan:
 
 	if err := scanner.Err(); err != nil {
 		fmt.Println("error reading standard input:", err)
-
 	}
 	go stdout.Close()
 
