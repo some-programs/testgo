@@ -1,6 +1,6 @@
 module github.com/some-programs/tgo
 
-go 1.15
+go 1.17
 
 require (
 	github.com/fatih/color v1.12.0
@@ -9,3 +9,5 @@ require (
 	github.com/peterbourgon/ff/v3 v3.1.0
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 )
+
+require github.com/mattn/go-colorable v0.1.8 // indirect
