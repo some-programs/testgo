@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -128,6 +129,7 @@ type Flags struct {
 	Summary          Statuses
 	Bin              string
 	All              bool
+	PrintConfig      bool
 }
 
 func (f *Flags) Register(fs *flag.FlagSet) {
@@ -141,6 +143,44 @@ func (f *Flags) Register(fs *flag.FlagSet) {
 	fs.IntVar((*int)(&f.V), "v", 0, "0(lowest) to 5(highest)")
 	fs.StringVar(&f.Config, "config", "", "config file")
 	fs.BoolVar(&f.All, "all", false, "show mostly everything")
+	fs.BoolVar(&f.PrintConfig, "print_config", false, "print config")
+}
+
+func (f *Flags) PrintHelp(w io.Writer) {
+	fmt.Fprint(w, `
+tgo settings:
+
+  tgo specific settings are controlled using environment variables so it
+  doesn't clash with other arguments.
+
+  TGO_ALL=1         show mostly everything
+  TGO_V=0           verbosity: 0(lowest) to 5(highest)
+  TGO_RESULTS       types of results to show
+  TGO_SUMMARY       types of summary to show
+  TGO_RES_HIDE      types of results to hide when empty
+  TGO_BIN=go        go binary name
+  TGO_PRINT_CONFIG  print config on run
+
+`)
+
+	var statusNames []string
+	for _, v := range AllStatuses {
+		statusNames = append(statusNames, string(v))
+
+	}
+	fmt.Fprint(w, "  valid values for TGO_RESULTS, TGO_SUMMARY and TGO_RES_HIDE: ", strings.Join(statusNames, ","), "\n\n")
+
+}
+
+func (f *Flags) printConfig(w io.Writer) {
+	fmt.Fprintf(w, `
+TGO config:
+  TGO_RESULTS: %s
+  TGO_SUMMARY: %s
+  TGO_RES_HIDE: %s
+
+`, f.Results.String(), f.Summary.String(), f.HideEmptyResults.String())
+
 }
 
 func (f *Flags) Setup(args []string) {
@@ -149,6 +189,7 @@ func (f *Flags) Setup(args []string) {
 		f.Summary = AllStatuses
 		f.HideEmptyResults = Statuses{}
 	}
+
 	for _, v := range args {
 		if v == "-v" {
 			f.V = V2
@@ -835,6 +876,15 @@ func main() {
 	}
 
 	flags.Setup(os.Args)
+
+	if flags.PrintConfig {
+		flags.printConfig(os.Stderr)
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "-h" {
+		flags.PrintHelp(os.Stderr)
+		// fs.Usage()
+	}
 
 	if flags.V <= V3 {
 		log.SetOutput(ioutil.Discard)
