@@ -1,4 +1,4 @@
 # tgo
 
-A simple wrapper around go test to get a little bit better feedback while working.
+A simple wrapper around go test to get a clearer overview feedback while working.
 
